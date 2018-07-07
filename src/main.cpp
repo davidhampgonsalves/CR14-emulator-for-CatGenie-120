@@ -43,27 +43,38 @@ void p(byte data[]) {
   Serial.println(")");
 }
 
+void print() {
+  Serial.print("IGNOING [");
+  while(Wire.available()) {
+    Serial.print(Wire.read(), HEX);
+    Serial.print(", ");
+  }
+  Serial.println("]");
+}
+
 void receiveEvent(int length) {
+  print();
+  return;
+
   if(length < 3) {
-    Serial.print("IGNOING [");
-    while(Wire.available()) {
-      Serial.print(Wire.read(), HEX);
-      Serial.print(", ");
-    }
-    Serial.println("]");
+    //Serial.println("IGNOING [");
+    //while(Wire.available()) {
+      //Serial.print(Wire.read(), HEX);
+      //Serial.print(", ");
+    //}
+    //Serial.println("]");
     return;
   }
 
   //Serial.print("Filling read register [");
   for(int i = 0 ; Wire.available() ; i++) {
     readRegister[i] = Wire.read();
-    Serial.print("filling read register");
-    Serial.print(i);
-    Serial.print(" with ");
-    Serial.println(readRegister[i], HEX);
-    //Serial.print(readRegister[i], HEX);
-    //Serial.print(", ");
+    //Serial.print("filling read register");
+    //Serial.print(i);
+    //Serial.print(" with ");
+    //Serial.println(Wire.read(), HEX);
   }
+  Serial.print("wrote read register: ");
   p(readRegister);
 }
 
@@ -90,7 +101,7 @@ byte* getBlockByRegister(byte reg) {
     case 0x0F: return BLOCK_F;
   }
   Serial.print("ERROR, block not found for ");
-  Serial.println(reg);
+  Serial.println(reg, HEX);
 
   return BLOCK_5;
 }
@@ -106,6 +117,7 @@ byte UID_RESPONSE[10] = { 0xD0, 0x02, 0x0D, 0xE4, 0x3F, 0x56, 0x69, 0x67 };
 
 
 void requestEvent() {
+  //Serial.println("READ!!!!!");
   byte* response;
   if(eq(readRegister, READ_SELECT_COMMAND))
       response = NODE_ID_RESPONSE;
@@ -128,8 +140,8 @@ void requestEvent() {
 void setup() {
   Wire.begin(I2C_ADDRESS);
 
-  Wire.onReceive(receiveEvent);
   Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent);
 
   Serial.begin(9600);
   Serial.println("Starting");
