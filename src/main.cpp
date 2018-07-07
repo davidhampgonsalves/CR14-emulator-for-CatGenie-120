@@ -11,6 +11,7 @@
  */
 
 byte I2C_ADDRESS = 80; // 80(7 bits) with a R/W bit appended
+byte I2C_MASTER_ADDRESS = 0x91;
 byte CLEAR_PARAMS[] = { 0x00, 0x00 };
 byte ENABLE_CARRIER[] = { 0x00, 0x10 };
 
@@ -22,11 +23,11 @@ bool eq(byte d1[], byte d2[]) {
   if(sizeof(d1) != sizeof(d2))
     return false;
 
-  for (unsigned int i = 0 ; i < sizeof(d1) ; i++) {
-    if(d1[i] != d2[i])
+  for (int i = 0 ; i < sizeof(d1) ; i++) {
+    if(d1[i] != d2[i]) {
       return false;
+    }
   }
-
   return true;
 }
 
@@ -43,8 +44,8 @@ void p(byte data[]) {
   Serial.println(")");
 }
 
-void print() {
-  Serial.print("IGNOING [");
+void readAndIgnore() {
+  Serial.print("Ignoring write [");
   while(Wire.available()) {
     Serial.print(Wire.read(), HEX);
     Serial.print(", ");
@@ -53,29 +54,28 @@ void print() {
 }
 
 void receiveEvent(int length) {
-  print();
-  return;
+  // This shows the right data but the code under it breaks things and I do not see reads
+  //readAndIgnore();
+  //return;
 
-  if(length < 3) {
-    //Serial.println("IGNOING [");
-    //while(Wire.available()) {
-      //Serial.print(Wire.read(), HEX);
-      //Serial.print(", ");
-    //}
-    //Serial.println("]");
+  //skip
+  if(length == 1) {
     return;
   }
 
-  //Serial.print("Filling read register [");
-  for(int i = 0 ; Wire.available() ; i++) {
-    readRegister[i] = Wire.read();
-    //Serial.print("filling read register");
-    //Serial.print(i);
-    //Serial.print(" with ");
-    //Serial.println(Wire.read(), HEX);
+  if(length < 3) {
+    return readAndIgnore();
   }
-  Serial.print("wrote read register: ");
-  p(readRegister);
+
+  Serial.print("Set read register [");
+  for(int i = 0 ; Wire.available() ; i++) {
+    //readRegister[i] = Wire.read();
+    byte data = Wire.read();
+    readRegister[i] = data;
+    Serial.print(data, HEX);
+    Serial.print(", ");
+  }
+  Serial.println("]");
 }
 
 byte BLOCK_5[4] = { 0x00, 0x00, 0x00, 0x00 };
@@ -110,28 +110,29 @@ byte UNHANDLED_RESPONSE[10] = { 0x00 };
 
 byte READ_SELECT_COMMAND[] = { 0x01, 0x02, 0x06, 0x00 };
 byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x91 };
-byte NODE_ID_RESPONSE[10] = { 0x01, 0x91 };
+byte NODE_ID_RESPONSE[] = { 0x01, 0x91 };
 
 byte READ_UID[] = { 0x01, 0x01, 0x0B };
-byte UID_RESPONSE[10] = { 0xD0, 0x02, 0x0D, 0xE4, 0x3F, 0x56, 0x69, 0x67 };
+byte UID_RESPONSE[] = { 0xD0, 0x02, 0x0D, 0xE4, 0x3F, 0x56, 0x69, 0x67 };
 
 
 void requestEvent() {
-  //Serial.println("READ!!!!!");
+  Serial.print("READ at: ");
+  p(readRegister);
+
   byte* response;
   if(eq(readRegister, READ_SELECT_COMMAND))
       response = NODE_ID_RESPONSE;
-  if(eq(readRegister, READ_NODE_ID))
+  else if(eq(readRegister, READ_NODE_ID))
     response = NODE_ID_RESPONSE;
-  if(eq(readRegister, READ_UID))
+  else if(eq(readRegister, READ_UID))
     response = UID_RESPONSE;
   else
     response = getBlockByRegister(readRegister[3]);
 
-  Serial.print("READ at: ");
-  p(readRegister);
-
-  Wire.write(response, sizeof(response));
+  Wire.beginTransmission(I2C_MASTER_ADDRESS);
+  Wire.write(response, sizeof(4));
+  Wire.endTransmission();
 
   Serial.print(" responding with: ");
   p(response);
