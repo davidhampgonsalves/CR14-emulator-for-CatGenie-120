@@ -11,7 +11,7 @@
  */
 
 byte I2C_ADDRESS = 80; // 80(7 bits) with a R/W bit appended
-byte I2C_MASTER_ADDRESS = 0x91;
+byte I2C_MASTER_ADDRESS = 0xAA;
 byte CLEAR_PARAMS[] = { 0x00, 0x00 };
 byte ENABLE_CARRIER[] = { 0x00, 0x10 };
 
@@ -54,11 +54,9 @@ void readAndIgnore() {
 }
 
 void receiveEvent(int length) {
-  // This shows the right data but the code under it breaks things and I do not see reads
-  //readAndIgnore();
-  //return;
-
-  //skip
+  Serial.print("Write");
+  //skip single byte write as its setting up the next read
+  //and reading the ack breaks the following read
   if(length == 1) {
     return;
   }
@@ -110,15 +108,15 @@ byte UNHANDLED_RESPONSE[10] = { 0x00 };
 
 byte READ_SELECT_COMMAND[] = { 0x01, 0x02, 0x06, 0x00 };
 byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x91 };
-byte NODE_ID_RESPONSE[] = { 0x01, 0x91 };
+byte NODE_ID_RESPONSE[] = { 0x01, 0x45 };
 
 byte READ_UID[] = { 0x01, 0x01, 0x0B };
 byte UID_RESPONSE[] = { 0xD0, 0x02, 0x0D, 0xE4, 0x3F, 0x56, 0x69, 0x67 };
 
 
 void requestEvent() {
-  Serial.print("READ at: ");
-  p(readRegister);
+  //Serial.print("READ at: ");
+  //p(readRegister);
 
   byte* response;
   if(eq(readRegister, READ_SELECT_COMMAND))
@@ -130,12 +128,10 @@ void requestEvent() {
   else
     response = getBlockByRegister(readRegister[3]);
 
-  Wire.beginTransmission(I2C_MASTER_ADDRESS);
-  Wire.write(response, sizeof(4));
-  Wire.endTransmission();
+  Wire.write(response, sizeof(response));
+  //Wire.write("\x01\x91");
 
-  Serial.print(" responding with: ");
-  p(response);
+  //Serial.println("  - done");
 }
 
 void setup() {
@@ -153,7 +149,7 @@ void setup() {
 }
 
 void loop() {
-  delay(100);
+  //delay(100);
   //Serial.println("Waiting ..");
 }
 
