@@ -11,69 +11,37 @@
  */
 
 byte I2C_ADDRESS = 80; // 80(7 bits) with a R/W bit appended
-byte I2C_MASTER_ADDRESS = 0xAA;
 byte CLEAR_PARAMS[] = { 0x00, 0x00 };
 byte ENABLE_CARRIER[] = { 0x00, 0x10 };
 
-bool writePending = false;
-byte recieved[10];
 byte* readRegister = new byte[4];
 
-bool eq(byte d1[], byte d2[]) {
-  if(sizeof(d1) != sizeof(d2))
-    return false;
-
-  for (int i = 0 ; i < sizeof(d1) ; i++) {
-    if(d1[i] != d2[i]) {
+bool eq(byte d1[], byte d2[], int size) {
+  for (int i = 0 ; i < size ; i++) {
+    if(d1[i] != d2[i])
       return false;
-    }
   }
   return true;
 }
 
-void p(byte data[]) {
-  Serial.print("[");
-  for (unsigned int i = 0 ; i < 4 ; i++) {
-    if(i > 0)
-      Serial.print(", ");
-    Serial.print(data[i], HEX);
-  }
-  Serial.print("]");
-  Serial.print("(");
-  Serial.print(sizeof(data));
-  Serial.println(")");
-}
-
-void readAndIgnore() {
-  Serial.print("Ignoring write [");
-  while(Wire.available()) {
-    Serial.print(Wire.read(), HEX);
-    Serial.print(", ");
-  }
-  Serial.println("]");
-}
-
 void receiveEvent(int length) {
-  Serial.print("Write");
   //skip single byte write as its setting up the next read
   //and reading the ack breaks the following read
   if(length == 1) {
     return;
   }
 
-  if(length < 3) {
-    return readAndIgnore();
+  if(length < 2) {
+    // consume data but ignore
+    while(Wire.available()) {
+      Wire.read();
+    }
+    return;
   }
 
-  Serial.print("Set read register [");
   for(int i = 0 ; Wire.available() ; i++) {
-    //readRegister[i] = Wire.read();
-    byte data = Wire.read();
-    readRegister[i] = data;
-    Serial.print(data, HEX);
-    Serial.print(", ");
+    readRegister[i] = Wire.read();
   }
-  Serial.println("]");
 }
 
 byte BLOCK_5[4] = { 0x00, 0x00, 0x00, 0x00 };
@@ -86,52 +54,41 @@ byte BLOCK_C[4] = { 0x00, 0x00, 0x21, 0x08 };
 byte BLOCK_D[4] = { 0xCB, 0xD8, 0x2A, 0x30 };
 byte BLOCK_F[4] = { 0xDE, 0xE0, 0x21, 0x08 };
 
-byte* getBlockByRegister(byte reg) {
-  switch(reg) {
-    case 0x05: return BLOCK_5;
-    case 0x06: return BLOCK_6;
-    case 0x08: return BLOCK_8;
-    case 0x09: return BLOCK_9;
-    case 0x0A: return BLOCK_A;
-    case 0x0B: return BLOCK_B;
-    case 0x0C: return BLOCK_C;
-    case 0x0D: return BLOCK_D;
-    case 0x0F: return BLOCK_F;
-  }
-  Serial.print("ERROR, block not found for ");
-  Serial.println(reg, HEX);
-
-  return BLOCK_5;
-}
-
-byte UNHANDLED_RESPONSE[10] = { 0x00 };
-
 byte READ_SELECT_COMMAND[] = { 0x01, 0x02, 0x06, 0x00 };
-byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x91 };
-byte NODE_ID_RESPONSE[] = { 0x01, 0x45 };
-
+byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x45 };
 byte READ_UID[] = { 0x01, 0x01, 0x0B };
+
+byte NODE_ID_RESPONSE[] = { 0x01, 0x45 };
 byte UID_RESPONSE[] = { 0xD0, 0x02, 0x0D, 0xE4, 0x3F, 0x56, 0x69, 0x67 };
 
 
+// This has to be really fast or we will miss data. Serial prints are too slow
 void requestEvent() {
-  //Serial.print("READ at: ");
-  //p(readRegister);
-
   byte* response;
-  if(eq(readRegister, READ_SELECT_COMMAND))
-      response = NODE_ID_RESPONSE;
-  else if(eq(readRegister, READ_NODE_ID))
+  int size = 4;
+
+  if(eq(readRegister, READ_SELECT_COMMAND, sizeof(READ_SELECT_COMMAND)) || eq(readRegister, READ_NODE_ID, sizeof(READ_NODE_ID))) {
     response = NODE_ID_RESPONSE;
-  else if(eq(readRegister, READ_UID))
+    size = sizeof(NODE_ID_RESPONSE);
+  } else if(eq(readRegister, READ_UID, sizeof(READ_UID))) {
     response = UID_RESPONSE;
-  else
-    response = getBlockByRegister(readRegister[3]);
+    size = sizeof(UID_RESPONSE);
+  } else {
+    switch(readRegister[3]) {
+      case 0x05: response = BLOCK_5;
+      case 0x06: response = BLOCK_6;
+      case 0x08: response = BLOCK_8;
+      case 0x09: response = BLOCK_9;
+      case 0x0A: response = BLOCK_A;
+      case 0x0B: response = BLOCK_B;
+      case 0x0C: response = BLOCK_C;
+      case 0x0D: response = BLOCK_D;
+      case 0x0F: response = BLOCK_F;
+      default: return;
+    }
+  }
 
-  Wire.write(response, sizeof(response));
-  //Wire.write("\x01\x91");
-
-  //Serial.println("  - done");
+  Wire.write(response, size);
 }
 
 void setup() {
@@ -139,18 +96,7 @@ void setup() {
 
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent);
-
-  Serial.begin(9600);
-  Serial.println("Starting");
-
-  pinMode(LED_BUILTIN, OUTPUT);
-
-  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-  //delay(100);
-  //Serial.println("Waiting ..");
 }
-
-
