@@ -1,5 +1,3 @@
-#define SIZEOF(x)  (sizeof (x) / sizeof (x[0]))
-
 #include "Arduino.h"
 #include "Wire.h"
 
