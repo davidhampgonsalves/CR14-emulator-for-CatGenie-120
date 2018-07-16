@@ -19,6 +19,7 @@ byte ENABLE_CARRIER[] = { 0x00, 0x10 };
 
 byte* readRegister = new byte[4];
 int readRegisterSize;
+byte remaining = 0x78;
 
 bool eq(byte d1[], byte d2[], int size) {
   for (int i = 0 ; i < size ; i++) {
@@ -32,6 +33,7 @@ void receiveEvent(int length) {
   //skip single byte write as its setting up the next read
   //and reading the ack breaks the following read
   if(length == 1) {
+    //hasDecremented = false;
     Wire.read();
     return;
   }
@@ -40,6 +42,17 @@ void receiveEvent(int length) {
     // consume data but ignore
     while(Wire.available()) {
       Wire.read();
+    }
+    return;
+  }
+
+  if(length > 6) {
+    //hasDecremented = true;
+    for(int i = 0 ; Wire.available() ; i++) {
+      if(i == 4)
+        remaining = Wire.read();
+      else
+       Wire.read();
     }
     return;
   }
@@ -53,6 +66,10 @@ void receiveEvent(int length) {
 const byte BLOCK_D[] = { 0x04, 0x1F, 0x7E, 0x30, 0x2A };
 const byte BLOCK_5[] = { 0x04, 0x78, 0x00, 0x00, 0x00 };
 const byte BLOCK_6[] = { 0x04, 0x78, 0x00, 0x00, 0x00 };
+
+const byte DECREMENTED_BLOCK_5[] = { 0x04, 0x77, 0x00, 0x00, 0x00 };
+const byte DECREMENTED_BLOCK_6[] = { 0x04, 0x77, 0x00, 0x00, 0x00 };
+
 const byte BLOCK_0[] = { 0x04, 0x00, 0x00, 0x00, 0x00 };
 const byte BLOCK_8[] = { 0x04, 0x01, 0x00, 0x78, 0x00 };
 const byte BLOCK_9[] = { 0x04, 0x01, 0x00, 0x78, 0x00 };
@@ -61,9 +78,11 @@ const byte BLOCK_B[] = { 0x04, 0x04, 0x0F, 0x00, 0x00 };
 const byte BLOCK_C[] = { 0x04, 0x04, 0x0F, 0x00, 0x00 };
 const byte BLOCK_F[] = { 0x04, 0x04, 0x0F, 0x2B, 0xFC };
 
-byte READ_SELECT_COMMAND[] = { 0x01, 0x02, 0x06, 0x00 };
-byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x3C };
-byte READ_UID[] = { 0x01, 0x01, 0x0B };
+const byte READ_SELECT_COMMAND[] = { 0x01, 0x02, 0x06, 0x00 };
+const byte READ_NODE_ID[] = { 0x01, 0x02, 0x0E, 0x3C };
+const byte READ_UID[] = { 0x01, 0x01, 0x0B };
+//const byte WRITE_DECREMENT_COUNT = { 0x01, 0x06, 0x09, 0x05, 0x75, 0x00, 0x00, 0x00 };
+//const byte WRITE_DECREMENT_COUNT = { 0x01, 0x06, 0x09, 0x06, 0x75, 0x00, 0x00, 0x00 };
 
 byte NODE_ID_RESPONSE[] = { 0x01, 0x3C };
 byte UID_RESPONSE[] = { 0x08, 0xA3, 0x6E, 0x6A, 0x73, 0x09, 0x33, 0x02, 0xD0 };
@@ -87,10 +106,18 @@ void requestEvent() {
         response = BLOCK_D;
         break;
       case 0x05:
+        //if(hasDecremented)
         response = BLOCK_5;
-        break;
+        response[1] = remaining;
+        //else
+          //response = BLOCK_5;
+        //break;
       case 0x06:
+        //if(hasDecremented)
         response = BLOCK_6;
+        response[1] = remaining;
+        //else
+          //response = BLOCK_6;
         break;
       case 0x00:
         response = BLOCK_0;
