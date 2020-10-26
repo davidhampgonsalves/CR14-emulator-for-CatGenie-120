@@ -19,7 +19,7 @@ byte* readRegister = new byte[4];
 int readRegisterSize;
 byte remaining = 0x78;
 
-bool eq(byte d1[], byte d2[], int size) {
+bool areBytesEqual(byte d1[], const byte d2[], int size) {
   for (int i = 0 ; i < size ; i++) {
     if(d1[i] != d2[i])
       return false;
@@ -50,7 +50,7 @@ void receiveEvent(int length) {
       if(i == 4)
         remaining = Wire.read();
       else
-       Wire.read();
+        Wire.read();
     }
     return;
   }
@@ -85,48 +85,52 @@ byte UID_RESPONSE[] = { 0x08, 0xA3, 0x6E, 0x6A, 0x73, 0x09, 0x33, 0x02, 0xD0 };
 void requestEvent() {
   byte* response;
   int size = 4;
-
-  if(eq(readRegister, READ_SELECT_COMMAND, readRegisterSize) || eq(readRegister, READ_NODE_ID, readRegisterSize)) {
+  bool isReadCommand = areBytesEqual(readRegister, READ_SELECT_COMMAND, readRegisterSize) 
+  || areBytesEqual(readRegister, READ_NODE_ID, readRegisterSize);
+  bool isUIDRequest = areBytesEqual(readRegister, READ_UID, readRegisterSize);
+  if(isReadCommand) {
     response = NODE_ID_RESPONSE;
     size = 2;
-  } else if(eq(readRegister, READ_UID, readRegisterSize)) {
+  } 
+  else if(isUIDRequest) {
     response = UID_RESPONSE;
     size = 9;
-  } else {
+  } 
+  else {
     // Return block requested by previous write to read register
     switch(readRegister[3]) {
-      case 0x0D:
-        response = BLOCK_D;
-        break;
-      case 0x05:
-        // block 5/6 hold the remaining usage count
-        response = BLOCK_5;
-        response[1] = remaining;
-      case 0x06:
-        response = BLOCK_6;
-        response[1] = remaining;
-        break;
-      case 0x00:
-        response = BLOCK_0;
-        break;
-      case 0x08:
-        response = BLOCK_8;
-        break;
-      case 0x09:
-        response = BLOCK_9;
-        break;
-      case 0x0A:
-        response = BLOCK_A;
-        break;
-      case 0x0B:
-        response = BLOCK_B;
-        break;
-      case 0x0C:
-        response = BLOCK_C;
-        break;
-      case 0x0F:
-        response = BLOCK_F;
-        break;
+    case 0x0D:
+      response = const_cast<byte*>(BLOCK_D);
+      break;
+    case 0x05:
+      // block 5/6 hold the remaining usage count
+      response = const_cast<byte*>(BLOCK_5);
+      response[1] = remaining;
+    case 0x06:
+      response = const_cast<byte*>(BLOCK_6);
+      response[1] = remaining;
+      break;
+    case 0x00:
+      response = const_cast<byte*>(BLOCK_0);
+      break;
+    case 0x08:
+      response = const_cast<byte*>(BLOCK_8);
+      break;
+    case 0x09:
+      response = const_cast<byte*>(BLOCK_9);
+      break;
+    case 0x0A:
+      response = const_cast<byte*>(BLOCK_A);
+      break;
+    case 0x0B:
+      response = const_cast<byte*>(BLOCK_B);
+      break;
+    case 0x0C:
+      response = const_cast<byte*>(BLOCK_C);
+      break;
+    case 0x0F:
+      response = const_cast<byte*>(BLOCK_F);
+      break;
     }
     size = 5;
   }
